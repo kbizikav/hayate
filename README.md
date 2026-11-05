@@ -8,6 +8,7 @@
 ![Swift](https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift&logoColor=white)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-Metal-555?logo=apple)
 ![Offline](https://img.shields.io/badge/実行時の通信-ゼロ-2ea44f)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
 
@@ -18,7 +19,7 @@
 - 🚀 **タイピングが止まらない** — LLM 変換は打鍵ごとに裏で先回り。スペースを押した瞬間には変換が終わっている
 - 🧠 **文脈で選ぶ** — カーソル左の文章を かな漢字変換 LLM [zenz-v3.2](https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf) に渡す
 - 🩹 **打ち間違いに強い** — `arigatpu` → ありがとうございます
-- ✂️ **文節編集** — `Shift`+`←→` で範囲調整、`→` で確定して次の文節へ
+- 🎯 **迷った文節に自動でフォーカス** — LLM と辞書の候補が食い違う文節だけを最初から選択状態に。確実な文はまるごと 1 文節
 - 🔒 **完全オフライン** — 実行時の通信ゼロ、入力内容はログに残さない
 
 ## 📊 ベンチマーク <sub>M4 Max</sub>
@@ -40,16 +41,18 @@
 
 > 💡 初回は依存パッケージとモデル（70 MB）の取得で数分かかります。Apple Silicon + Xcode（Swift 6.1 以上）が必要です。
 
+> ⚠️ **更新（再インストール）したら、起動中のアプリを再起動してから Hayate に切り替えてください。** 古い入力ソース情報を持ったままのアプリ（Ghostty、Discord など）は、切り替えた瞬間に macOS 側で落ちることがあります。ログアウト→ログインが一番確実です。
+
 ## ⌨️ キー操作
 
 | キー | 動作 |
 |---|---|
-| `Space` | 変換 / 次の候補 |
+| `Space` | 変換 / 選択中の文節の次の候補 |
 | `↑` `↓` | 候補を選ぶ |
-| `1`–`9` | 番号で確定 |
+| `←` `→` | 文節を移動（文全体のときは文節に分割） |
 | `Shift` + `←` `→` | 文節の範囲を調整 |
-| `→` | 文節を確定して次へ |
-| `Enter` | 確定 |
+| `1`–`9` | 番号で選んで次の文節へ |
+| `Enter` | すべて確定 |
 | `Esc` / `⌫` | 変換を取り消す |
 | `英数` / `かな` | モード切替 |
 
@@ -102,3 +105,7 @@ D=.build/checkouts/AzooKeyKanaKanjiConverter/Sources/KanaKanjiConverterModuleWit
 | [azooKey_dictionary_storage](https://github.com/ensan-hcl/azooKey_dictionary_storage) | Apache-2.0 | 辞書 |
 | [zenz-v3.2-small](https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf) | Apache-2.0 | かな漢字変換 LLM |
 | [azooKey-Desktop](https://github.com/azooKey/azooKey-Desktop) | MIT | 記号の全角化テーブル |
+
+## 📄 ライセンス
+
+[MIT](LICENSE)（依存・モデルはそれぞれのライセンスに従います）

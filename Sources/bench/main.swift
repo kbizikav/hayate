@@ -41,11 +41,29 @@ do {
     var p = t
     _ = p.moveCursorFromCursorPosition(count: 3 - p.convertTargetCursorPosition)
     p = p.prefixToCursorPosition()
-    let top = e.convert(p, left: "")[0]
+    let top = e.convert(p, left: "").candidates[0]
     var rest = t
     rest.prefixComplete(composingCount: top.composingCount)
     print("segment check: [\(p.convertTarget)] → \(top.text) + \(rest.convertTarget)")
     precondition(top.text == "今日" && rest.convertTarget == "はいいてんきですね", "clause edit broken")
+    precondition(t.slice(3, 6).convertTarget == "はいい" && t.slice(9, 12).convertTarget == "ですね", "slice broken")
+
+    // Google-style split: only the clause where close alternatives disagree is unconfident.
+    func split(_ roman: String) -> [Clause] {
+        var t = ComposingText()
+        t.type(roman)
+        t = t.separated()
+        let r = e.convert(t, left: "")
+        let s = r.candidates.first { t.isCovered(by: $0) }!
+        let cs = Engine.split(s, kanaCount: t.convertTarget.count, alternatives: r.dict.filter { t.isCovered(by: $0) })!
+        precondition(cs.map(\.candidate.text).joined() == s.text && cs.map(\.length).reduce(0, +) == t.convertTarget.count, "split loses text")
+        return cs
+    }
+    let movie = split("kinouhatomodatitoeigawominiikimasita")
+    let calm = split("watasihanihongowohanasimasu")
+    print("split check: " + movie.map { $0.confident ? $0.candidate.text : "【\($0.candidate.text)】" }.joined(separator: "|"))
+    precondition(movie.filter { !$0.confident }.map(\.candidate.text) == ["観に行きました"], "confidence moved")
+    precondition(calm.allSatisfy(\.confident), "false alarm on a clear sentence")
 }
 
 // Context must beat learning: confirm 「回答してください」 3× (as during manual testing),
@@ -56,19 +74,41 @@ if a.count > 4, a[4] == "--context" {
     t.type("kaitousitekudasai")
     t = t.separated()
     let ctx = "この冷凍肉を"
-    let plain = e.convert(t, left: "")
+    let plain = e.convert(t, left: "").candidates
     print("no context     :", plain.prefix(3).map(\.text))
     for _ in 0..<3 {
         e.commit(plain[0])
         e.endComposition()
     }
-    let learned = e.convert(t, left: "")
-    let withCtx = e.convert(t, left: ctx)
+    let learned = e.convert(t, left: "").candidates
+    let withCtx = e.convert(t, left: ctx).candidates
     print("learned, no ctx:", learned.prefix(3).map(\.text))
     print("learned + ctx  :", withCtx.prefix(3).map(\.text))
     precondition(withCtx.first?.text == "解凍してください", "learning overrides context")
     precondition(withCtx.prefix(3).contains { $0.text == plain[0].text }, "learned candidate lost")
     print("context check: OK")
+    exit(0)
+}
+
+// Clause split + confidence:  bench <dict> <emoji> <zenz> --segments <romaji>...
+if a.count > 5, a[4] == "--segments" {
+    let e = Engine(dictionaryURL: dict, zenzURL: zenz, memoryDir: mem, emojiURL: emoji)
+    for roman in a[5...] {
+        var t = ComposingText()
+        t.type(roman)
+        t = t.separated()
+        let r = e.convert(t, left: "")
+        let s = r.candidates.first { t.isCovered(by: $0) }!
+        let alts = r.dict.filter { t.isCovered(by: $0) }
+        print("\n\(t.convertTarget)")
+        print("  LLM : \(r.llm.first?.text ?? "-")")
+        for d in r.dict.filter({ t.isCovered(by: $0) }).prefix(3) { print("  dict: \(d.text)  \(String(format: "%.2f", d.value))") }
+        if let cs = Engine.split(s, kanaCount: t.convertTarget.count, alternatives: alts) {
+            print("  → " + cs.map { $0.confident ? $0.candidate.text : "【\($0.candidate.text)】" }.joined(separator: "|"))
+        } else {
+            print("  → (cannot align)")
+        }
+    }
     exit(0)
 }
 
@@ -81,7 +121,7 @@ if a.count > 6, a[4] == "--probe" {
     _ = e.convert(t, left: a[5])  // warm
     e.endComposition()
     var c = [Candidate]()
-    let tc = ms { c = e.convert(t, left: a[5]) }
+    let tc = ms { c = e.convert(t, left: a[5]).candidates }
     print("convert \(String(format: "%.1f", tc))ms:", c.prefix(8).map(\.text).joined(separator: " / "))
     var typo = [ZenzaiTypoCandidate]()
     let tt = ms { typo = e.typoCandidates(t, left: a[5]) }
@@ -114,7 +154,7 @@ for limit in zenz == nil ? [0] : [0, 1, 5] {
             Thread.sleep(forTimeInterval: 0.08)
         }
         var top = [String]()
-        spaceWait.append(ms { top = e.convert(t.separated(), left: left).prefix(3).map(\.text) })
+        spaceWait.append(ms { top = e.convert(t.separated(), left: left).candidates.prefix(3).map(\.text) })
         e.endComposition()
         let hit = top.first == expect
         if hit { ok += 1 }

@@ -29,8 +29,9 @@ echo "built $APP"
 
 if [ "${1:-}" = install ]; then
   DEST="$HOME/Library/Input Methods/Hayate.app"
-  rm -rf "$DEST"
-  cp -R "$APP" "$DEST"
+  # Update in place: never let the enabled input method's bundle vanish (a delete-then-copy
+  # window can make macOS drop it from the enabled input sources).
+  rsync -a --delete "$APP/" "$DEST/"
   pkill -x Hayate || true
   sleep 0.5
   open "$DEST"  # macOS does not launch a newly installed input method by itself until re-login
