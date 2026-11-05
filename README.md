@@ -2,25 +2,26 @@
 
 # ⚡ Hayate
 
-**打った瞬間、もう変換されている。**
+**azooKey の変換エンジンを、10 倍以上速く。**<br/>
+local LLM 日本語入力 for macOS
 
-azooKey の 10 倍以上速い、local LLM 日本語入力 for macOS
-
+![powered by azooKey](https://img.shields.io/badge/powered%20by-azooKey-4c8bf5)
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-Metal-555?logo=apple)
-![Offline](https://img.shields.io/badge/通信-ゼロ-2ea44f)
+![通信ゼロ](https://img.shields.io/badge/%E9%80%9A%E4%BF%A1-%E3%82%BC%E3%83%AD-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-
-</div>
 
 <br/>
 
-|  | azooKey | **Hayate** |  |
-|---|---:|---:|:---:|
-| キー入力の待ち | 2.6 ms | **0.2 ms** | **13×** |
-| スペース → 変換 | 5.1 ms | **0.2 ms** | **25×** |
+<table align="center">
+  <tr><th></th><th>azooKey-Desktop</th><th>Hayate</th><th></th></tr>
+  <tr><td>キー入力の待ち</td><td align="right">2.6 ms</td><td align="right"><b>0.2 ms</b></td><td align="center"><b>13×</b></td></tr>
+  <tr><td>スペース → 変換</td><td align="right">5.1 ms</td><td align="right"><b>0.2 ms</b></td><td align="center"><b>25×</b></td></tr>
+</table>
 
 <sub>中央値・M4 Max・同じ変換エンジンとモデルで計測</sub>
+
+</div>
 
 <br/>
 
@@ -67,17 +68,23 @@ flowchart LR
 
 メニューバーの「あ」から、学習データのクリアとデバッグモードを使えます。
 
-## 🆚 azooKey との違い
+## 🆚 azooKey-Desktop との違い
 
-同じ変換エンジンを、呼び出し方から作り直しています。
+変換エンジンは同じ。呼び出し方と操作を作り直しています。
 
-|  | azooKey | **Hayate** |
+|  | azooKey-Desktop | **Hayate** |
 |---|---|---|
 | 1 位候補 | 学習が優先 | **文脈が優先** |
 | 打ち間違い | local LLM 使用時はオフ | **local LLM と両立** |
 | 長文 | 先頭から順に確定 | **迷った文節に自動フォーカス** |
 | 通信 | OpenAI 連携あり | **完全オフライン** |
 | 機能 | 豊富 | 最小限 |
+
+## 💐 azooKey への感謝
+
+Hayate は [azooKey](https://github.com/azooKey) の上に作られています。変換エンジン、辞書、かな漢字変換モデルの zenz は、すべて azooKey プロジェクトのものです。Hayate で作ったのは、エンジンの呼び出し方と IME の操作部分です。azooKey の開発者の方々に感謝します。
+
+[AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter) · [azooKey_dictionary_storage](https://github.com/ensan-hcl/azooKey_dictionary_storage) · [zenz-v3.2-small](https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf) · [azooKey-Desktop](https://github.com/azooKey/azooKey-Desktop)
 
 <details>
 <summary><b>開発者向け</b></summary>
@@ -97,13 +104,9 @@ D=.build/checkouts/AzooKeyKanaKanjiConverter/Sources/KanaKanjiConverterModuleWit
   $D/azooKey_emoji_dictionary_storage/EmojiDictionary/emoji_all_E16.0.txt models/zenz.gguf --azookey
 ```
 
-`--azookey` は azooKey 既定設定の呼び出し方との速度比較。`--probe "<左文脈>" "<ローマ字>"` で 1 文を調べられます。
+`--azookey` は azooKey-Desktop 既定設定の呼び出し方との速度比較。`--probe "<左文脈>" "<ローマ字>"` で 1 文を調べられます。
 
 </details>
-
-## 🙏 クレジット
-
-[AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter) · [azooKey_dictionary_storage](https://github.com/ensan-hcl/azooKey_dictionary_storage) · [zenz-v3.2-small](https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf) · [azooKey-Desktop](https://github.com/azooKey/azooKey-Desktop)
 
 ## 📄 ライセンス
 
