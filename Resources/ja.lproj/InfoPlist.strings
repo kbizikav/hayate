@@ -1,0 +1,4 @@
+/* Input source names shown in System Settings and the input menu. */
+CFBundleName = "Hayate";
+"com.apple.inputmethod.Japanese" = "日本語 (Hayate)";
+"com.apple.inputmethod.Roman" = "英字 (Hayate)";
