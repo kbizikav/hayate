@@ -112,6 +112,59 @@ if a.count > 5, a[4] == "--segments" {
     exit(0)
 }
 
+// Head-to-head with azooKey-Desktop's call pattern (its defaults, read from its source):
+// one converter, Zenzai inferenceLimit 5, synchronous requestCandidates on every keystroke
+// (live conversion), then Space = composition separator + requestRichCandidates.
+if a.count > 4, a[4] == "--azookey" {
+    let replacer = TextReplacer { emoji }
+    func azooKey(_ left: String, rich: Bool) -> ConvertRequestOptions {
+        ConvertRequestOptions(
+            requireJapanesePrediction: .disabled, requireEnglishPrediction: .disabled, keyboardLanguage: .ja_JP,
+            englishCandidateInRoman2KanaInput: false, fullWidthRomanCandidate: true, learningType: .inputAndOutput,
+            memoryDirectoryURL: mem, sharedContainerURL: mem, textReplacer: replacer,
+            specialCandidateProviders: KanaKanjiConverter.defaultSpecialCandidateProviders,
+            zenzaiMode: .on(weight: zenz!, inferenceLimit: 5, requestRichCandidates: rich, personalizationMode: nil,
+                            versionDependentMode: .v3(.init(leftSideContext: left.isEmpty ? nil : left, enableAlignmentSeparator: true))),
+            experimentalZenzaiPredictiveInput: true, typoCorrectionMode: .automatic, metadata: .init(versionString: "bench")
+        )
+    }
+    func stats(_ xs: [Double]) -> String { "p50 \(pct(xs, 0.5)) ms / max \(pct(xs, 1)) ms" }
+
+    let az = KanaKanjiConverter(dicdataStore: DicdataStore(dictionaryURL: dict))
+    var warm = ComposingText()
+    warm.type("tesuto")
+    _ = az.requestCandidates(warm, options: azooKey("", rich: true))
+    az.stopComposition()
+    var azKey: [Double] = [], azSpace: [Double] = []
+    for (left, roman, _) in cases {
+        var t = ComposingText()
+        for ch in roman {
+            t.type(ch)
+            azKey.append(ms { _ = az.requestCandidates(t, options: azooKey(left, rich: false)) })
+        }
+        let s = t.separated()
+        azSpace.append(ms { _ = az.requestCandidates(s, options: azooKey(left, rich: true)) })
+        az.stopComposition()
+    }
+
+    let e = Engine(dictionaryURL: dict, zenzURL: zenz, memoryDir: mem, emojiURL: emoji)
+    _ = e.convert(warm.separated(), left: "")
+    e.endComposition()
+    var hKey: [Double] = [], hSpace: [Double] = []
+    for (left, roman, _) in cases {
+        var t = ComposingText()
+        for ch in roman {
+            hKey.append(ms { t.type(ch); e.prefetch(t.separated(), left: left) })  // all the main thread does
+            Thread.sleep(forTimeInterval: 0.08)  // ~12 keys/s
+        }
+        hSpace.append(ms { _ = e.convert(t.separated(), left: left) })
+        e.endComposition()
+    }
+    print("keystroke wait  azooKey \(stats(azKey))   Hayate \(stats(hKey))")
+    print("Space → list    azooKey \(stats(azSpace))   Hayate \(stats(hSpace))")
+    exit(0)
+}
+
 // Probe one input:  bench <dict> <emoji> <zenz> --probe <left> <romaji> [limit]
 if a.count > 6, a[4] == "--probe" {
     let e = Engine(dictionaryURL: dict, zenzURL: zenz, memoryDir: mem, emojiURL: emoji, inferenceLimit: a.count > 7 ? Int(a[7])! : 5)

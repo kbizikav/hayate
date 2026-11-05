@@ -118,7 +118,7 @@ final class HayateInputController: IMKInputController {
 
     override func menu() -> NSMenu! {
         let m = NSMenu()
-        let debug = NSMenuItem(title: "デバッグモード（入力内容をログに記録）", action: #selector(toggleDebug(_:)), keyEquivalent: "")
+        let debug = NSMenuItem(title: "デバッグモード", action: #selector(toggleDebug(_:)), keyEquivalent: "")
         debug.state = debugMode ? .on : .off
         m.addItem(debug)
         m.addItem(.separator())
@@ -182,7 +182,7 @@ final class HayateInputController: IMKInputController {
         if debugMode {
             let ms = String(format: "%.1f", Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
             let shown = (clauses ?? []).map { $0.confident ? $0.candidate.text : "【\($0.candidate.text)】" }.joined(separator: "|")
-            log.notice("[debug] convert \(ms, privacy: .public)ms 「\(self.left, privacy: .public)」+\(self.text.convertTarget, privacy: .public) → \(shown, privacy: .public)")
+            log.debug("[debug] convert \(ms, privacy: .public)ms 「\(self.left, privacy: .public)」+\(self.text.convertTarget, privacy: .public) → \(shown, privacy: .public)")
         }
         showMarked(c)
     }
@@ -349,7 +349,7 @@ final class HayateInputController: IMKInputController {
         let line = raw.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).last ?? ""
         let s = String(line.drop(while: \.isWhitespace))
         log.notice("left context: \(s.count, privacy: .public) chars")  // count only unless debug mode
-        if debugMode { log.notice("[debug] left context: 「\(s, privacy: .public)」") }
+        if debugMode { log.debug("[debug] left context: 「\(s, privacy: .public)」") }
         return s
     }
 }
