@@ -22,7 +22,7 @@ azooKey の 10 倍以上速い、macOS 用の local LLM 日本語入力です。
 
 <p align="center"><sub>中央値。M4 Max で、同じ変換エンジンとモデルを使って計測しました。</sub></p>
 
-Hayate は local LLM (zenz) の変換をバックグラウンドで先に済ませておくので、キー入力が待たされません。azooKey-Desktop はキーを打つたびにメインスレッドで変換を実行します。
+Hayate は local LLM (zenz) の変換をバックグラウンドで先に済ませておくので、キー入力が待たされません。
 
 ## 特長
 
