@@ -9,8 +9,10 @@ import Foundation
 ///
 /// Two converters, because the engine keeps incremental lattice state per converter
 /// and Zenzai/dictionary requests must not share it:
-/// - `llm`:  Zenzai (zenz-v3.1). Context-aware top-1, but the engine turns typo correction off here.
-/// - `dict`: dictionary Viterbi + classic typo correction. ~3ms, better alternative candidates.
+/// - `llm`:  Zenzai (zenz-v3.2). Context-aware top-1, but the engine turns typo correction off here.
+///           Learning is OFF here: the engine lets learned words override the LLM, so a once-confirmed
+///           「回答してください」 would beat 「冷凍肉を → 解凍」. Context decides the top-1 (user's choice).
+/// - `dict`: dictionary Viterbi + classic typo correction + learning. ~3ms, alternatives (learned ones rank high).
 public final class Engine: @unchecked Sendable {
     struct Request: Equatable {
         var text: ComposingText
@@ -69,10 +71,9 @@ public final class Engine: @unchecked Sendable {
 
     public func commit(_ candidate: Candidate) {
         queue.async { [self] in
-            for c in [dict, llm].compactMap({ $0 }) {
-                c.setCompletedData(candidate)
-                c.updateLearningData(candidate)
-            }
+            dict.setCompletedData(candidate)
+            dict.updateLearningData(candidate)
+            llm?.setCompletedData(candidate)
         }
     }
 
@@ -84,9 +85,16 @@ public final class Engine: @unchecked Sendable {
         }
     }
 
-    /// Both converters learn in memory; only `dict` persists (same data, one writer).
     public func saveLearning() {
         queue.async { [self] in dict.commitUpdateLearningData() }
+    }
+
+    /// Forget everything learned (memory and files).
+    public func resetLearning() {
+        queue.async { [self] in
+            dict.resetMemory()
+            cache = nil
+        }
     }
 
     private func run(_ r: Request) -> [Candidate] {
@@ -127,7 +135,7 @@ public final class Engine: @unchecked Sendable {
             englishCandidateInRoman2KanaInput: true,
             fullWidthRomanCandidate: true,
             halfWidthKanaCandidate: true,
-            learningType: .inputAndOutput,
+            learningType: zenzai ? .nothing : .inputAndOutput,  // see `llm` above
             memoryDirectoryURL: memoryDir,
             sharedContainerURL: memoryDir,
             textReplacer: textReplacer,

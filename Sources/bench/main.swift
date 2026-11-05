@@ -5,7 +5,8 @@ import HayateCore
 let a = CommandLine.arguments
 let dict = URL(fileURLWithPath: a[1]), emoji = URL(fileURLWithPath: a[2])
 let zenz = a.count > 3 ? URL(fileURLWithPath: a[3]) : nil
-let mem = FileManager.default.temporaryDirectory.appendingPathComponent("hayate-bench-\(getpid())")
+let mem = ProcessInfo.processInfo.environment["HAYATE_MEMORY"].map { URL(fileURLWithPath: $0) }  // reuse a learning-data copy
+    ?? FileManager.default.temporaryDirectory.appendingPathComponent("hayate-bench-\(getpid())")
 
 // (left context, romaji typed, expected). Some romaji contain deliberate typos.
 let cases: [(String, String, String)] = [
@@ -45,6 +46,30 @@ do {
     rest.prefixComplete(composingCount: top.composingCount)
     print("segment check: [\(p.convertTarget)] → \(top.text) + \(rest.convertTarget)")
     precondition(top.text == "今日" && rest.convertTarget == "はいいてんきですね", "clause edit broken")
+}
+
+// Context must beat learning: confirm 「回答してください」 3× (as during manual testing),
+// then the same reading after 「冷凍肉を」 must still be 解凍 — with the learned one close behind.
+if a.count > 4, a[4] == "--context" {
+    let e = Engine(dictionaryURL: dict, zenzURL: zenz, memoryDir: mem, emojiURL: emoji)
+    var t = ComposingText()
+    t.type("kaitousitekudasai")
+    t = t.separated()
+    let ctx = "この冷凍肉を"
+    let plain = e.convert(t, left: "")
+    print("no context     :", plain.prefix(3).map(\.text))
+    for _ in 0..<3 {
+        e.commit(plain[0])
+        e.endComposition()
+    }
+    let learned = e.convert(t, left: "")
+    let withCtx = e.convert(t, left: ctx)
+    print("learned, no ctx:", learned.prefix(3).map(\.text))
+    print("learned + ctx  :", withCtx.prefix(3).map(\.text))
+    precondition(withCtx.first?.text == "解凍してください", "learning overrides context")
+    precondition(withCtx.prefix(3).contains { $0.text == plain[0].text }, "learned candidate lost")
+    print("context check: OK")
+    exit(0)
 }
 
 // Probe one input:  bench <dict> <emoji> <zenz> --probe <left> <romaji> [limit]

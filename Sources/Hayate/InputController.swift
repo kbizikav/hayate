@@ -58,6 +58,11 @@ final class HayateInputController: IMKInputController {
         }
         guard japanese else { return false }
         if !event.modifierFlags.isDisjoint(with: [.command, .control, .option]) {
+            // Ctrl+C while composing cancels it (like Esc); the next Ctrl+C reaches the app/terminal.
+            if !text.isEmpty, event.modifierFlags.contains(.control), event.charactersIgnoringModifiers == "c" {
+                clear(c)
+                return true
+            }
             commitAll(c)
             return false
         }
@@ -92,6 +97,35 @@ final class HayateInputController: IMKInputController {
         guard let s = event.characters, s.unicodeScalars.count == 1,
               let u = s.unicodeScalars.first, (0x21..<0x7f).contains(u.value) else { return nil }
         return s
+    }
+
+    // MARK: - Input menu (menu bar「あ」)
+
+    override func menu() -> NSMenu! {
+        let m = NSMenu()
+        let debug = NSMenuItem(title: "デバッグモード（入力内容をログに記録）", action: #selector(toggleDebug(_:)), keyEquivalent: "")
+        debug.state = debugMode ? .on : .off
+        m.addItem(debug)
+        m.addItem(.separator())
+        m.addItem(NSMenuItem(title: "学習データをクリア…", action: #selector(clearLearning(_:)), keyEquivalent: ""))
+        return m
+    }
+
+    @objc private func toggleDebug(_ sender: Any?) {
+        debugMode.toggle()
+        log.notice("debug mode: \(debugMode, privacy: .public)")
+    }
+
+    @objc private func clearLearning(_ sender: Any?) {
+        let alert = NSAlert()
+        alert.messageText = "学習データをクリアしますか？"
+        alert.informativeText = "これまでに確定した変換の学習がすべて消えます。元に戻せません。"
+        alert.addButton(withTitle: "クリア")
+        alert.addButton(withTitle: "キャンセル")
+        alert.window.level = .floating  // background-only app: keep the alert above the user's window
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        engine.resetLearning()
+        log.notice("learning data cleared")
     }
 
     // MARK: - State transitions
@@ -133,8 +167,13 @@ final class HayateInputController: IMKInputController {
             _ = target.moveCursorFromCursorPosition(count: seg - target.convertTargetCursorPosition)
             target = target.prefixToCursorPosition()
         }
+        let t0 = DispatchTime.now().uptimeNanoseconds
         cands = engine.convert(target, left: left)
         sel = cands.isEmpty ? nil : 0
+        if debugMode {
+            let ms = String(format: "%.1f", Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
+            log.notice("[debug] convert \(ms, privacy: .public)ms 「\(self.left, privacy: .public)」+\(target.convertTarget, privacy: .public) → \(self.cands.prefix(5).map(\.text).joined(separator: " / "), privacy: .public)")
+        }
     }
 
     /// Grow/shrink the focused clause by one kana.
@@ -161,7 +200,7 @@ final class HayateInputController: IMKInputController {
         sel = nil
         seg = nil
         candidateWindow.hide()
-        guard !text.isEmpty else { return clear(c) }
+        guard !text.isEmpty else { return clear(c, erase: false) }
         step(+1, c)
         if thenList { showList(c) }
     }
@@ -171,7 +210,7 @@ final class HayateInputController: IMKInputController {
         if let i = sel { engine.commit(cands[i]) } else { text = text.separated() }
         let (head, tail) = parts()
         c.insertText(head + tail, replacementRange: notFound)
-        clear(c)
+        clear(c, erase: false)
     }
 
     private func cancelConversion(_ c: IMKTextInput) {
@@ -181,13 +220,17 @@ final class HayateInputController: IMKInputController {
         showMarked(c)
     }
 
-    private func clear(_ c: IMKTextInput) {
+    /// `erase`: also clear the app's marked text. Skip it right after `insertText`, which already
+    /// replaced it — that redundant `setMarkedText` crashed Ghostty inside AppKit.
+    private func clear(_ c: IMKTextInput, erase: Bool = true) {
         text = ComposingText()
         cands = []
         sel = nil
         seg = nil
         candidateWindow.hide()
-        c.setMarkedText("", selectionRange: NSRange(location: 0, length: 0), replacementRange: notFound)
+        if erase {
+            c.setMarkedText(NSAttributedString(string: ""), selectionRange: NSRange(location: 0, length: 0), replacementRange: notFound)
+        }
         engine.endComposition()
     }
 
@@ -226,10 +269,20 @@ final class HayateInputController: IMKInputController {
         return r
     }
 
+    /// Text left of the composition. Same as azooKey: `string(from:)` (widely implemented, unlike
+    /// `attributedSubstring`), anchored at the marked range when there is one.
     private func leftContext(_ c: IMKTextInput) -> String {
-        let r = c.selectedRange()
-        guard r.location != NSNotFound, r.location > 0 else { return "" }
-        let n = min(r.location, 30)
-        return c.attributedSubstring(from: NSRange(location: r.location - n, length: n))?.string ?? ""
+        let marked = c.markedRange()
+        let end = marked.location != NSNotFound ? marked.location : c.selectedRange().location
+        guard end != NSNotFound, end > 0 else {
+            log.notice("left context: none (cursor \(end == NSNotFound ? "unknown" : "at start", privacy: .public))")
+            return ""
+        }
+        let n = min(end, 30)
+        var actual = NSRange()
+        let s = c.string(from: NSRange(location: end - n, length: n), actualRange: &actual) ?? ""
+        log.notice("left context: \(s.count, privacy: .public) chars")  // count only unless debug mode
+        if debugMode { log.notice("[debug] left context: 「\(s, privacy: .public)」") }
+        return s
     }
 }
